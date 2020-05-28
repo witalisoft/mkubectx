@@ -10,7 +10,7 @@ $ go build
 
 ## Usage
 ```
-mkubectx [-contexts ctx1,ctx2,...] command [args...]
+mkubectx [-contexts|-c ctx1,ctx2,...] command [args...]
   contexts arguments can be passed as regular expression
 ```
 
