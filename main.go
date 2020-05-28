@@ -28,10 +28,10 @@ func main() {
 	}
 	execData := make(chan execSummary)
 	stopPrinting := make(chan bool)
-	go printCmdOutput(execData, stopPrinting)
 	defer func() {
 		stopPrinting <- true
 	}()
+	go printCmdOutput(execData, stopPrinting)
 	filteredContexts, err := getFilteredContexts()
 	if err != nil {
 		log.Fatal(err)

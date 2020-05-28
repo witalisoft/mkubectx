@@ -41,12 +41,12 @@ func cmdExec(ctx string, kubeConfig string, cmdArg []string, appDir string, exec
 		if len(combinedErrors) > 0 {
 			errorOutput = fmt.Errorf(strings.Join(combinedErrors, "\n"))
 		}
-		wg.Done()
 		execData <- execSummary{
 			ctx:    ctx,
 			output: combinedOutput,
 			err:    errorOutput,
 		}
+		wg.Done()
 	}()
 	fileData, err := yaml.Marshal(&KubeConfigCurrentContext{Currcontext: ctx})
 	if err != nil {
@@ -71,35 +71,28 @@ func cmdExec(ctx string, kubeConfig string, cmdArg []string, appDir string, exec
 }
 
 func printCmdOutput(execData chan execSummary, stopPrinting chan bool) {
+L:
 	for {
 		select {
 		case data := <-execData:
 			for i, line := range strings.Split(string(data.output), "\n") {
-				if line != "" {
-					if i == 0 {
-						color := chooseColor(data.ctx)
-						color.Printf("%s\n", data.ctx)
-					}
-					fmt.Printf("  %s\n", line)
+				if i == 0 {
+					color := chooseColor(data.ctx)
+					color.Printf("%s\n", data.ctx)
 				}
+				fmt.Printf("  %s\n", line)
 			}
 			if data.err != nil {
 				color := color.New(color.FgHiRed, color.Bold)
 				color.Printf(" error:\n")
-				fmt.Printf("  %v\n", data.err)
-
+				fmt.Printf("  %v\n\n", data.err)
 			}
-		default:
-			continue
-		}
-		select {
 		case <-stopPrinting:
-			break
+			break L
 		default:
 			continue
 		}
 	}
-
 }
 
 func chooseColor(ctx string) (ctxrColor *color.Color) {
