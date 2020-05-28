@@ -60,7 +60,7 @@ func cmdExec(ctx string, kubeConfig string, cmdArg []string, appDir string, exec
 	}
 
 	cmd := exec.Command(cmdArg[0], cmdArg[1:]...)
-	cmd.Env = append(os.Environ(), "KUBECONFIG="+localKubeConfig+":"+kubeConfig)
+	cmd.Env = append(os.Environ(), "KUBECONFIG="+localKubeConfig+":"+kubeConfig, "KUBECTX="+ctx)
 	combinedOutput, err = cmd.CombinedOutput()
 	if err != nil {
 		combinedErrors = append(combinedErrors, fmt.Errorf("error in executing command, err: %v", err).Error())

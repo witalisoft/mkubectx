@@ -14,6 +14,8 @@ mkubectx [-contexts ctx1,ctx2,...] command [args...]
   contexts arguments can be passed as regular expression
 ```
 
+Defined command has access to environment variable `KUBECTX` with name of current kubernetes context.
+
 ## Examples
 ```
 ./mkubectx -contexts "gke_.*(pro|ci).*,minikube" kubectl get namespaces
