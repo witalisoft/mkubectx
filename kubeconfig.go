@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"gopkg.in/yaml.v2"
@@ -38,13 +39,18 @@ func getKubeConfig() (string, error) {
 	return kubeConfig, nil
 }
 
-func getKubeConfigContexts(file string) error {
-	cfg, err := ioutil.ReadFile(file)
-	if err != nil {
-		return fmt.Errorf("cannot read file %s, err: %v", file, err)
-	}
-	if err = yaml.Unmarshal(cfg, &Contexts); err != nil {
-		return fmt.Errorf("cannot unmarshal kubeConfig, err: %v", err)
+func getKubeConfigContexts(env string) error {
+	var TempContext ContextsConfig
+	for _, file := range getKubeConfigFiles(env) {
+		cfg, err := ioutil.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("cannot read file %s, err: %v", file, err)
+		}
+		if err := yaml.Unmarshal(cfg, &TempContext); err != nil {
+			return fmt.Errorf("cannot unmarshal kubeConfig from file %s, err: %v", file, err)
+		}
+		Contexts.Contexts = append(Contexts.Contexts, TempContext.Contexts...)
+
 	}
 	return nil
 }
@@ -79,7 +85,6 @@ func getFilteredContexts() ([]ContextsDetails, error) {
 			}
 		}
 	}
-
 	return uniqContexts(filteredContexts), nil
 }
 
@@ -94,4 +99,8 @@ func uniqContexts(ctx []ContextsDetails) []ContextsDetails {
 		}
 	}
 	return uniqContexts
+}
+
+func getKubeConfigFiles(kubeConfig string) []string {
+	return strings.Split(kubeConfig, ":")
 }
