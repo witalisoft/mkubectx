@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/mattn/go-isatty"
 )
 
 type TestCommander struct{}
@@ -106,10 +107,14 @@ func TestCmdExec(t *testing.T) {
 }
 
 func TestPrinter(t *testing.T) {
+	type expectedType struct {
+		colorver   string
+		nocolorver string
+	}
 	tests := []struct {
 		name     string
 		input    execSummary
-		expected string
+		expected expectedType
 	}{
 		{
 			name: "success",
@@ -118,7 +123,10 @@ func TestPrinter(t *testing.T) {
 				output: []byte("sample output"),
 				err:    nil,
 			},
-			expected: "\x1b[92;1mtestctx\n\x1b[0m  sample output\n",
+			expected: expectedType{
+				colorver:   "\x1b[92;1mtestctx\n\x1b[0m  sample output\n",
+				nocolorver: "testctx\n  sample output\n",
+			},
 		},
 		{
 			name: "error",
@@ -127,7 +135,10 @@ func TestPrinter(t *testing.T) {
 				output: nil,
 				err:    fmt.Errorf("sample error msg"),
 			},
-			expected: "\x1b[92;1mtestctx\n\x1b[0m  \n\x1b[91;1m error:\n\x1b[0m  sample error msg\n\n",
+			expected: expectedType{
+				colorver:   "\x1b[92;1mtestctx\n\x1b[0m  \n\x1b[91;1m error:\n\x1b[0m  sample error msg\n\n",
+				nocolorver: "testctx\n  \n error:\n  sample error msg\n\n",
+			},
 		},
 	}
 
@@ -139,7 +150,11 @@ func TestPrinter(t *testing.T) {
 			go printCmdOutput(execData, stopPrinting, &output)
 			execData <- test.input
 			stopPrinting <- true
-			MustEqual(t, test.expected, output.String())
+			if isatty.IsTerminal(os.Stdout.Fd()) {
+				MustEqual(t, test.expected.colorver, output.String())
+			} else {
+				MustEqual(t, test.expected.nocolorver, output.String())
+			}
 		})
 	}
 }

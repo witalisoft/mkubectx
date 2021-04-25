@@ -1,0 +1,23 @@
+before:
+  hooks:
+    - go mod tidy
+    - go test
+
+builds:
+- id: mkubectx
+  goos:
+    - darwin
+    - linux
+  goarch:
+    - amd64
+
+archives:
+- builds:
+  - mkubectx
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'
