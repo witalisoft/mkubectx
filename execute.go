@@ -2,10 +2,8 @@ package main
 
 import (
 	"fmt"
-	"hash/fnv"
-	"io/ioutil"
+	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -27,14 +25,15 @@ type KubeConfigCurrentContext struct {
 	Currcontext string `yaml:"current-context"`
 }
 
-func cmdExec(ctx string, kubeConfig string, cmdArg []string, appDir string, execData chan execSummary, wg *sync.WaitGroup) {
+func cmdExec(cmder Commander, fs MockFilesystem, ctx string, kubeConfig string, cmdArg []string, appDir string, execData chan execSummary, wg *sync.WaitGroup) {
 	var combinedOutput []byte
 	var combinedErrors []string
 	var localKubeConfig string = filepath.Join(appDir, ctx+".yaml")
+
 	defer func() {
 		var errorOutput error = nil
-		if _, err := os.Stat(localKubeConfig); err == nil {
-			if err := os.Remove(localKubeConfig); err != nil {
+		if _, err := fs.Stat(localKubeConfig); err == nil {
+			if err := fs.Remove(localKubeConfig); err != nil {
 				combinedErrors = append(combinedErrors, fmt.Errorf("cannot remove local kube config file %s, err: %v", localKubeConfig, err).Error())
 			}
 		}
@@ -53,14 +52,14 @@ func cmdExec(ctx string, kubeConfig string, cmdArg []string, appDir string, exec
 		combinedErrors = append(combinedErrors, fmt.Errorf("yaml marshal config problem, err: %v", err).Error())
 		return
 	}
-	ioutil.WriteFile(localKubeConfig, fileData, 0644)
+	err = fs.WriteFile(localKubeConfig, fileData, 0644)
 	if err != nil {
 		combinedErrors = append(combinedErrors, fmt.Errorf("cannot create new file %s, err: %v", localKubeConfig, err).Error())
 		return
 	}
 
-	cmd := exec.Command(cmdArg[0], cmdArg[1:]...)
-	cmd.Env = append(os.Environ(), "KUBECONFIG="+localKubeConfig+":"+kubeConfig, "KUBECTX="+ctx)
+	cmd := cmder.Command(cmdArg[0], cmdArg[1:]...)
+	cmd.Env = append(cmd.Env, append(os.Environ(), "KUBECONFIG="+localKubeConfig+":"+kubeConfig, "KUBECTX="+ctx)...)
 	combinedOutput, err = cmd.CombinedOutput()
 	if err != nil {
 		combinedErrors = append(combinedErrors, fmt.Errorf("error in executing command, err: %v", err).Error())
@@ -70,22 +69,24 @@ func cmdExec(ctx string, kubeConfig string, cmdArg []string, appDir string, exec
 
 }
 
-func printCmdOutput(execData chan execSummary, stopPrinting chan bool) {
+func printCmdOutput(execData chan execSummary, stopPrinting chan bool, output io.Writer) {
+	var coloridx int
 L:
 	for {
 		select {
 		case data := <-execData:
 			for i, line := range strings.Split(string(data.output), "\n") {
 				if i == 0 {
-					color := chooseColor(data.ctx)
-					color.Printf("%s\n", data.ctx)
+					color := colorList[coloridx%len(colorList)]
+					color.Fprintf(output, "%s\n", data.ctx)
+					coloridx++
 				}
-				fmt.Printf("  %s\n", line)
+				fmt.Fprintf(output, "  %s\n", line)
 			}
 			if data.err != nil {
 				color := color.New(color.FgHiRed, color.Bold)
-				color.Printf(" error:\n")
-				fmt.Printf("  %v\n\n", data.err)
+				color.Fprintf(output, " error:\n")
+				fmt.Fprintf(output, "  %v\n\n", data.err)
 			}
 		case <-stopPrinting:
 			break L
@@ -93,12 +94,4 @@ L:
 			continue
 		}
 	}
-}
-
-func chooseColor(ctx string) (ctxrColor *color.Color) {
-	hash := fnv.New32()
-	hash.Write([]byte(ctx))
-	idx := hash.Sum32() % uint32(len(colorList))
-
-	return colorList[idx]
 }
