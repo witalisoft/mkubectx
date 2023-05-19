@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -28,7 +29,7 @@ type KubeConfigCurrentContext struct {
 func cmdExec(cmder Commander, fs MockFilesystem, ctx string, kubeConfig string, cmdArg []string, appDir string, execData chan execSummary, wg *sync.WaitGroup) {
 	var combinedOutput []byte
 	var combinedErrors []string
-	var localKubeConfig string = filepath.Join(appDir, ctx+".yaml")
+	var localKubeConfig string = filepath.Join(appDir, sanitizeKubeconfigFile(ctx)+".yaml")
 
 	defer func() {
 		var errorOutput error = nil
@@ -94,4 +95,10 @@ L:
 			continue
 		}
 	}
+}
+
+func sanitizeKubeconfigFile(s string) string {
+	re := regexp.MustCompile(`[:/]`)
+	return re.ReplaceAllString(s, "_")
+
 }
